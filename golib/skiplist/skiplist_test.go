@@ -2,6 +2,7 @@ package skiplist
 
 import (
 	"math/rand"
+	"sort"
 	"testing"
 )
 
@@ -65,7 +66,7 @@ func TestSkiplist(t *testing.T) {
 			}
 		}
 	}
-	_ = sl.String()
+	t.Log("\n" + sl.String())
 }
 
 func randNums(n int) []key {
@@ -87,9 +88,14 @@ func randTargets(n, total int) []key {
 	return targets
 }
 
-func sliceSearch(slice []key, target key) {
+type sliceNode struct {
+	Key   KeyType
+	Value interface{}
+}
+
+func sliceSearch(slice []sliceNode, target key) {
 	for _, n := range slice {
-		if n == target {
+		if n.Key.Equal(target) {
 			return
 		}
 	}
@@ -100,7 +106,8 @@ func BenchmarkSkiplistSearch(b *testing.B) {
 		name     string
 		totalNum int
 	}{
-		{"sparse 10k", 10000},
+		{"dense 1k", 1000},
+		{"dense 10k", 10000},
 	}
 	for _, bb := range benches {
 		b.Run(bb.name+"/skiplist", func(b *testing.B) {
@@ -117,10 +124,11 @@ func BenchmarkSkiplistSearch(b *testing.B) {
 		})
 		b.Run(bb.name+"/slice", func(b *testing.B) {
 			nums := randNums(bb.totalNum)
-			slice := make([]key, 0)
+			slice := make([]sliceNode, 0)
 			for _, n := range nums {
-				slice = append(slice, n)
+				slice = append(slice, sliceNode{Key: n, Value: n})
 			}
+			sort.Slice(slice, func(i, j int) bool { return slice[i].Key.Less(slice[j].Key) })
 			targets := randTargets(bb.totalNum, b.N)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
