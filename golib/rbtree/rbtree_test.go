@@ -1,8 +1,11 @@
 package rbtree_test
 
 import (
-	. "github.com/atriw/lib/golib/rbtree"
+	"math/rand"
+	"sort"
 	"testing"
+
+	. "github.com/atriw/lib/golib/rbtree"
 )
 
 type key int
@@ -28,6 +31,9 @@ func TestRBTree(t *testing.T) {
 		t.Errorf("Insert: expected len %v, actual len %v", len(nums), rbt.Length())
 	}
 	t.Log("\n" + rbt.String())
+	if !rbt.Validate() {
+		t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+	}
 	for _, n := range toRemove {
 		v := rbt.Remove(n)
 		i, ok := v.(key)
@@ -35,8 +41,8 @@ func TestRBTree(t *testing.T) {
 			t.Errorf("Remove: expected %v, actual %v", n, v)
 		}
 	}
-	if rbt.Length() != len(nums) {
-		t.Errorf("Remove: expected len %v, actual len %v", len(nums), rbt.Length())
+	if rbt.Length() != len(nums)-len(toRemove) {
+		t.Errorf("Remove: expected len %v, actual len %v", len(nums)-len(toRemove), rbt.Length())
 	}
 	inRemove := func(n key) bool {
 		for _, v := range toRemove {
@@ -67,4 +73,79 @@ func TestRBTree(t *testing.T) {
 		}
 	}
 	t.Log("\n" + rbt.String())
+	if !rbt.Validate() {
+		t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+	}
+}
+
+func randNums(n int) []key {
+	var nums []key
+	for i := 0; i < n; i++ {
+		nums = append(nums, key(i))
+	}
+	rand.Shuffle(n, func(i, j int) {
+		nums[i], nums[j] = nums[j], nums[i]
+	})
+	return nums
+}
+
+func randTargets(n, total int) []key {
+	var targets []key
+	for i := 0; i < total; i++ {
+		targets = append(targets, key(rand.Intn(n)))
+	}
+	return targets
+}
+
+type sliceNode struct {
+	Key   KeyType
+	Value interface{}
+}
+
+func sliceSearch(slice []sliceNode, target key) {
+	for _, n := range slice {
+		if n.Key.Equal(target) {
+			return
+		}
+	}
+}
+
+func BenchmarkSkiplistSearch(b *testing.B) {
+	benches := []struct {
+		name     string
+		totalNum int
+	}{
+		{"dense 1k", 1000},
+		{"dense 10k", 10000},
+	}
+	for _, bb := range benches {
+		b.Run(bb.name+"/rbtree", func(b *testing.B) {
+			nums := randNums(bb.totalNum)
+			rbt := New()
+			for _, n := range nums {
+				rbt.Insert(n, n)
+			}
+			targets := randTargets(bb.totalNum, b.N)
+			if !rbt.Validate() {
+				b.Error("Validate: the tree doesn't not hold red-black-tree's properties")
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = rbt.Search(targets[i])
+			}
+		})
+		b.Run(bb.name+"/slice", func(b *testing.B) {
+			nums := randNums(bb.totalNum)
+			slice := make([]sliceNode, 0)
+			for _, n := range nums {
+				slice = append(slice, sliceNode{Key: n, Value: n})
+			}
+			sort.Slice(slice, func(i, j int) bool { return slice[i].Key.Less(slice[j].Key) })
+			targets := randTargets(bb.totalNum, b.N)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				sliceSearch(slice, targets[i])
+			}
+		})
+	}
 }

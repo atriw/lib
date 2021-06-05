@@ -15,6 +15,7 @@ type color int
 const (
 	colorRed color = iota
 	colorBlack
+	colorDoubleBlack
 )
 
 type node struct {
@@ -27,12 +28,42 @@ type node struct {
 	color  color
 }
 
+func newInternalNode(key KeyType, value interface{}) *node {
+	n := &node{Key: key, Value: value, color: colorRed}
+	e1 := newExternalNode(n)
+	e2 := newExternalNode(n)
+	n.left = e1
+	n.right = e2
+	return n
+}
+
+func newExternalNode(parent *node) *node {
+	return &node{parent: parent, color: colorBlack}
+}
+
 func (n *node) isLeft() bool {
 	return n.parent != nil && n.parent.left == n
 }
 
 func (n *node) isRight() bool {
 	return n.parent != nil && n.parent.right == n
+}
+
+func (n *node) isExternal() bool {
+	return n.left == nil && n.right == nil
+}
+
+// isFull can only be called on internal node.
+func (n *node) isFull() bool {
+	return !n.left.isExternal() && !n.right.isExternal()
+}
+
+// child can only be called on internal node.
+func (n *node) child() *node {
+	if !n.left.isExternal() {
+		return n.left
+	}
+	return n.right
 }
 
 func (n *node) brother() *node {
@@ -45,34 +76,44 @@ func (n *node) brother() *node {
 	return n.parent.left
 }
 
+// successor can only be called on internal node.
+func (n *node) successor() *node {
+	succ := n.right
+	for !succ.isExternal() && !succ.left.isExternal() {
+		succ = succ.left
+	}
+	return succ
+}
+
 func (n *node) isRed() bool {
-	return n != nil && n.color == colorRed
+	return !n.isExternal() && n.color == colorRed
 }
 
 func (n *node) isBlack() bool {
-	return n == nil || n.color == colorBlack
+	return n.isExternal() || n.color == colorBlack
 }
 
 func (n *node) String() string {
-	if n == nil {
-		return "<nil>"
+	if n.isExternal() {
+		return "[Ext]"
 	}
 	color := "r"
 	if n.color == colorBlack {
 		color = "b"
 	}
-	return fmt.Sprintf("[%v:%v:%v]", n.Key, n.Value, color)
+	height, _ := n.blackHeight()
+	return fmt.Sprintf("[%v:%v:%v:%v]", n.Key, n.Value, color, height)
 }
 
 func (n *node) print(sb *strings.Builder, prefix, childPrefix string) {
 	sb.WriteString(prefix)
 	sb.WriteString(n.String())
 	sb.WriteString("\n")
-	if n == nil {
+	if n.isExternal() {
 		return
 	}
-	n.left.print(sb, childPrefix+"├── ", childPrefix+"│   ")
-	n.right.print(sb, childPrefix+"└── ", childPrefix+"    ")
+	n.right.print(sb, childPrefix+"├── ", childPrefix+"│   ")
+	n.left.print(sb, childPrefix+"└── ", childPrefix+"    ")
 }
 
 func (n *node) setDir(dir direction, c *node) {
@@ -102,7 +143,7 @@ type RBTree struct {
 }
 
 func New() *RBTree {
-	return &RBTree{root: nil}
+	return &RBTree{root: newExternalNode(nil)}
 }
 
 func (t *RBTree) Length() int {
@@ -111,11 +152,11 @@ func (t *RBTree) Length() int {
 
 func (t *RBTree) Search(key KeyType) interface{} {
 	p, dir := t.search(key)
-	if p == nil {
+	if p.isExternal() {
 		return nil
 	}
 	n := p.dir(dir)
-	if n == nil {
+	if n.isExternal() {
 		return nil
 	}
 	return n.Value
@@ -129,10 +170,16 @@ const (
 	right
 )
 
-func (t *RBTree) search(key KeyType) (parent *node, dir direction) {
+// search searches for the given key.
+// If
+// - the root is external, returns root, self.
+// - finds the exact node, returns node, self.
+// - no exact match found, stops at external node, returns the parent of the external node, and direction refering to it.
+func (t *RBTree) search(key KeyType) (p *node, dir direction) {
 	n := t.root
-	for n != nil {
-		parent = n
+	p = n
+	for !n.isExternal() {
+		p = n
 		if key.Equal(n.Key) {
 			dir = self
 			break
@@ -145,21 +192,26 @@ func (t *RBTree) search(key KeyType) (parent *node, dir direction) {
 			dir = right
 		}
 	}
-	return parent, dir
+	return p, dir
 }
 
 func (t *RBTree) Insert(key KeyType, value interface{}) {
-	parent, dir := t.search(key)
-	if parent != nil && dir == self {
+	p, dir := t.search(key)
+	// Find existing key.
+	if !p.isExternal() && dir == self {
 		return
 	}
 	t.length++
-	if parent == nil {
-		t.root = &node{Key: key, Value: value, color: colorBlack}
+	// Find root that is external
+	if p.isExternal() {
+		t.root = newInternalNode(key, value)
+		t.root.color = colorBlack
 		return
 	}
-	n := &node{Key: key, Value: value, parent: parent, color: colorRed}
-	parent.setDir(dir, n)
+
+	n := newInternalNode(key, value)
+	n.parent = p
+	p.setDir(dir, n)
 	for n != t.root && n.parent.isRed() {
 		uncle := n.parent.brother()
 		// case 1:
@@ -223,24 +275,30 @@ func (t *RBTree) Insert(key KeyType, value interface{}) {
 	t.root.color = colorBlack
 }
 
-// newChild         newParent
-//    |     ------->    |
-// newParent        newChild
-func (t *RBTree) reparent(newChild, newParent *node) {
-	newParent.parent = newChild.parent
-	if newChild.parent == nil {
-		t.root = newParent
+// rechild sets n's parent's child to c, but not sets c'parent to n's parent.
+func (t *RBTree) rechild(n, c *node) {
+	if n.parent == nil {
+		t.root = c
 	} else {
-		if newChild.isLeft() {
-			newChild.parent.left = newParent
+		if n.isLeft() {
+			n.parent.left = c
 		} else {
-			newChild.parent.right = newParent
+			n.parent.right = c
 		}
 	}
-	newChild.parent = newParent
 }
 
-//		l                      r
+// reparent sets c'parent to p, p's parent to c and rechild p, c.
+//    p                 c
+//    |     ------->    |
+//    c                 p
+func (t *RBTree) reparent(p, c *node) {
+	c.parent = p.parent
+	t.rechild(p, c)
+	p.parent = c
+}
+
+//      l                      r
 //     / \     leftRotate     / \
 //    A   r    --------->    l   C
 //       / \   <---------   / \
@@ -266,11 +324,126 @@ func (t *RBTree) rightRotate(r *node) {
 }
 
 func (t *RBTree) Remove(key KeyType) interface{} {
-	return nil
+	n, dir := t.search(key)
+	if dir != self {
+		return nil
+	}
+	if n.isExternal() {
+		return nil
+	}
+	t.length--
+	v := n.Value
+	t.remove(n)
+	return v
+}
+
+func (t *RBTree) remove(n *node) {
+	if n.isFull() {
+		succ := n.successor()
+		n.Key, n.Value = succ.Key, succ.Value
+		n = succ
+	}
+	child := n.child()
+	t.reparent(n, child)
+	if n.isRed() {
+		return
+	}
+	n = child
+	if n.isRed() {
+		n.color = colorBlack
+		return
+	}
+	// n.color = colorDoubleBlack
+	for n != t.root {
+		brother := n.brother()
+		var opposite, same direction
+		var oppAdj, sameAdj func(*node)
+		if n.isRight() {
+			opposite, same = left, right
+			oppAdj, sameAdj = t.leftRotate, t.rightRotate
+		} else {
+			opposite, same = right, left
+			oppAdj, sameAdj = t.rightRotate, t.leftRotate
+		}
+		if brother.isBlack() {
+			if brother.dir(opposite).isRed() {
+				n.color = colorBlack
+				brother.dir(opposite).color = colorBlack
+				brother.color = n.parent.color
+				n.parent.color = colorBlack
+				sameAdj(n.parent)
+				return
+			}
+			if brother.dir(same).isRed() {
+				n.color = colorBlack
+				brother.dir(same).color = n.parent.color
+				n.parent.color = colorBlack
+				oppAdj(brother)
+				sameAdj(n.parent)
+				return
+			}
+			if n.parent.isRed() {
+				n.color = colorBlack
+				brother.color = colorRed
+				n.parent.color = colorBlack
+				return
+			}
+			n.color = colorBlack
+			brother.color = colorRed
+			// n.parent.color = colorDoubleBlack
+			n = n.parent
+			continue
+		}
+		brother.color = n.parent.color
+		n.parent.color = colorRed
+		sameAdj(n.parent)
+	}
 }
 
 func (t *RBTree) String() string {
 	var sb strings.Builder
 	t.root.print(&sb, "", "")
 	return sb.String()
+}
+
+func (t *RBTree) Validate() bool {
+	return t.root.propertyRedHasNoRedChildren() && t.root.propertyBlackHeightEqual()
+}
+
+func (n *node) propertyRedHasNoRedChildren() bool {
+	if n.isExternal() {
+		return true
+	}
+	if n.isRed() {
+		if n.left.isRed() || n.right.isRed() {
+			return false
+		}
+	}
+	return n.left.propertyRedHasNoRedChildren() && n.right.propertyRedHasNoRedChildren()
+}
+
+func (n *node) propertyBlackHeightEqual() bool {
+	_, t := n.blackHeight()
+	return t
+}
+
+func (n *node) blackHeight() (int, bool) {
+	if n.isExternal() {
+		return 0, true
+	}
+	lbh, ok := n.left.blackHeight()
+	if !ok {
+		return 0, false
+	}
+	rbh, ok := n.right.blackHeight()
+	if !ok {
+		return 0, false
+	}
+	if lbh != rbh {
+		return 0, false
+	}
+	if n.isBlack() {
+		lbh += 1
+	}
+	return lbh, true
 }
