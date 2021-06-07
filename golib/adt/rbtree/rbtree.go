@@ -2,7 +2,6 @@ package rbtree
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/atriw/lib/golib/adt"
 )
@@ -102,15 +101,16 @@ func (n *node) String() string {
 	return fmt.Sprintf("[%v:%v:%v:%v]", n.Key, n.Value, color, height)
 }
 
-func (n *node) print(sb *strings.Builder, prefix, childPrefix string) {
-	sb.WriteString(prefix)
-	sb.WriteString(n.String())
-	sb.WriteString("\n")
-	if n.isExternal() {
-		return
-	}
-	n.right.print(sb, childPrefix+"├── ", childPrefix+"│   ")
-	n.left.print(sb, childPrefix+"└── ", childPrefix+"    ")
+func (n *node) Left() adt.TreeNode {
+	return n.left
+}
+
+func (n *node) Right() adt.TreeNode {
+	return n.right
+}
+
+func (n *node) External() bool {
+	return n.isExternal()
 }
 
 func (n *node) setDir(dir direction, c *node) {
@@ -196,6 +196,7 @@ func (t *RBTree) Insert(key adt.Key, value interface{}) {
 	p, dir := t.search(key)
 	// Find existing key.
 	if !p.isExternal() && dir == self {
+		p.Value = value
 		return
 	}
 	t.length++
@@ -398,9 +399,7 @@ func (t *RBTree) delete(n *node) {
 }
 
 func (t *RBTree) String() string {
-	var sb strings.Builder
-	t.root.print(&sb, "", "")
-	return sb.String()
+	return adt.PrintTree(t.root)
 }
 
 func (t *RBTree) Validate() bool {

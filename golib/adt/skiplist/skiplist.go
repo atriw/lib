@@ -98,6 +98,7 @@ func (sl *Skiplist) randLevel() int {
 func (sl *Skiplist) Insert(key adt.Key, value interface{}) {
 	prev := sl.prevNodes(key)
 	if prev.assertNext(key) {
+		prev.next().value = value
 		return
 	}
 	newLevel := sl.randLevel()

@@ -1,8 +1,11 @@
 package adt_test
 
 import (
-	. "github.com/atriw/lib/golib/adt"
 	"testing"
+
+	. "github.com/atriw/lib/golib/adt"
+	"github.com/atriw/lib/golib/adt/rbtree"
+	"github.com/atriw/lib/golib/adt/skiplist"
 )
 
 type sliceEntry struct {
@@ -49,4 +52,14 @@ func TestSlice(t *testing.T) {
 func BenchmarkSliceSearch(b *testing.B) {
 	s := &slice{}
 	XBenchSearch(b, s)
+}
+
+func BenchmarkRBTreeSearch(b *testing.B) {
+	rbt := rbtree.New()
+	XBenchSearch(b, rbt)
+}
+
+func BenchmarkSkiplistSearch(b *testing.B) {
+	sl := skiplist.New(skiplist.WithMaxLevel(15))
+	XBenchSearch(b, sl)
 }

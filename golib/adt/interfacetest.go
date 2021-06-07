@@ -62,6 +62,13 @@ func XTestADT(t *testing.T, adt ADT) {
 	}
 	for _, n := range nums {
 		v := adt.Search(n)
+		if n == 12 {
+			i, ok := v.(key)
+			if !ok || !i.Equal(key(12)) {
+				t.Errorf("Search: expected 12, actual %v", v)
+			}
+			continue
+		}
 		if inRemove(n) {
 			if v != nil {
 				t.Errorf("Search: expected nil, actual %v", v)
@@ -69,7 +76,7 @@ func XTestADT(t *testing.T, adt ADT) {
 		} else {
 			i, ok := v.(key)
 			if !ok || !i.Equal(n*2) {
-				t.Errorf("Search: expected %v, actual %v", n, v)
+				t.Errorf("Search: expected %v, actual %v", n*2, v)
 			}
 		}
 	}
