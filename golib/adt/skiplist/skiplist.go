@@ -4,21 +4,17 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+
+	"github.com/atriw/lib/golib/adt"
 )
 
-// KeyType is the interface that keys of Skiplist must implement
-type KeyType interface {
-	Less(other interface{}) bool
-	Equal(other interface{}) bool
-}
-
 type node struct {
-	key     KeyType
+	key     adt.Key
 	value   interface{}
 	forward []*node
 }
 
-func (n *node) advance(level int, target KeyType) *node {
+func (n *node) advance(level int, target adt.Key) *node {
 	for next := n.forward[level]; next != nil && next.key.Less(target); {
 		n = next
 		next = next.forward[level]
@@ -32,7 +28,7 @@ func (nl nodeList) next() *node {
 	return nl[0].forward[0]
 }
 
-func (nl nodeList) assertNext(key KeyType) bool {
+func (nl nodeList) assertNext(key adt.Key) bool {
 	next := nl.next()
 	return next != nil && next.key.Equal(key)
 }
@@ -75,7 +71,7 @@ func New(opts ...Option) *Skiplist {
 	return sl
 }
 
-func (sl *Skiplist) prevNodes(key KeyType) nodeList {
+func (sl *Skiplist) prevNodes(key adt.Key) nodeList {
 	prev := make(nodeList, sl.level+1)
 	node := sl.header
 	for i := sl.level; i >= 0; i-- {
@@ -86,7 +82,7 @@ func (sl *Skiplist) prevNodes(key KeyType) nodeList {
 }
 
 // Search returns the value of key if exists, else nil
-func (sl *Skiplist) Search(key KeyType) interface{} {
+func (sl *Skiplist) Search(key adt.Key) interface{} {
 	prev := sl.prevNodes(key)
 	if prev.assertNext(key) {
 		return prev.next().value
@@ -99,7 +95,7 @@ func (sl *Skiplist) randLevel() int {
 }
 
 // Insert inserts key, value into Skiplist
-func (sl *Skiplist) Insert(key KeyType, value interface{}) {
+func (sl *Skiplist) Insert(key adt.Key, value interface{}) {
 	prev := sl.prevNodes(key)
 	if prev.assertNext(key) {
 		return
@@ -120,11 +116,12 @@ func (sl *Skiplist) Insert(key KeyType, value interface{}) {
 }
 
 // Remove removes and returns value of key
-func (sl *Skiplist) Remove(key KeyType) interface{} {
+func (sl *Skiplist) Delete(key adt.Key) interface{} {
 	prev := sl.prevNodes(key)
 	if !prev.assertNext(key) {
 		return nil
 	}
+	sl.length--
 	node := prev.next()
 	for i, n := range node.forward {
 		prev[i].forward[i] = n

@@ -1,11 +1,9 @@
-package rbtree_test
+package adt
 
 import (
 	"math/rand"
-	"sort"
+	"reflect"
 	"testing"
-
-	. "github.com/atriw/lib/golib/rbtree"
 )
 
 type key int
@@ -20,29 +18,32 @@ func (k key) Equal(other interface{}) bool {
 	return ok && k == i
 }
 
-func TestRBTree(t *testing.T) {
-	rbt := New()
+func XTestADT(t *testing.T, adt ADT) {
 	nums := []key{12, 6, 17, 21, 3, 7, 9, 26, 25, 19}
 	toRemove := []key{21, 9, 25}
 	for _, n := range nums {
-		rbt.Insert(n, n*2)
+		adt.Insert(n, n*2)
 	}
-	if rbt.Length() != len(nums) {
-		t.Errorf("Insert: expected len %v, actual len %v", len(nums), rbt.Length())
+	if adt.Length() != len(nums) {
+		t.Errorf("Insert: expected len %v, actual len %v", len(nums), adt.Length())
 	}
-	t.Log("\n" + rbt.String())
-	if !rbt.Validate() {
-		t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+	if x, ok := adt.(interface{ String() string }); ok {
+		t.Log("\n" + x.String())
+	}
+	if x, ok := adt.(Validate); ok {
+		if !x.Validate() {
+			t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+		}
 	}
 	for _, n := range toRemove {
-		v := rbt.Remove(n)
+		v := adt.Delete(n)
 		i, ok := v.(key)
 		if !ok || !i.Equal(n*2) {
 			t.Errorf("Remove: expected %v, actual %v", n, v)
 		}
 	}
-	if rbt.Length() != len(nums)-len(toRemove) {
-		t.Errorf("Remove: expected len %v, actual len %v", len(nums)-len(toRemove), rbt.Length())
+	if adt.Length() != len(nums)-len(toRemove) {
+		t.Errorf("Remove: expected len %v, actual len %v", len(nums)-len(toRemove), adt.Length())
 	}
 	inRemove := func(n key) bool {
 		for _, v := range toRemove {
@@ -53,14 +54,14 @@ func TestRBTree(t *testing.T) {
 		return false
 	}
 	// Insert already exist
-	rbt.Insert(key(12), key(12))
+	adt.Insert(key(12), key(12))
 	// Delete already remove
-	v := rbt.Remove(key(21))
+	v := adt.Delete(key(21))
 	if v != nil {
 		t.Errorf("Remove: already removed, expected nil, actual %v", v)
 	}
 	for _, n := range nums {
-		v := rbt.Search(n)
+		v := adt.Search(n)
 		if inRemove(n) {
 			if v != nil {
 				t.Errorf("Search: expected nil, actual %v", v)
@@ -72,9 +73,13 @@ func TestRBTree(t *testing.T) {
 			}
 		}
 	}
-	t.Log("\n" + rbt.String())
-	if !rbt.Validate() {
-		t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+	if x, ok := adt.(interface{ String() string }); ok {
+		t.Log("\n" + x.String())
+	}
+	if x, ok := adt.(Validate); ok {
+		if !x.Validate() {
+			t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+		}
 	}
 }
 
@@ -97,20 +102,7 @@ func randTargets(n, total int) []key {
 	return targets
 }
 
-type sliceNode struct {
-	Key   KeyType
-	Value interface{}
-}
-
-func sliceSearch(slice []sliceNode, target key) {
-	for _, n := range slice {
-		if n.Key.Equal(target) {
-			return
-		}
-	}
-}
-
-func BenchmarkSkiplistSearch(b *testing.B) {
+func XBenchSearch(b *testing.B, adt ADT) {
 	benches := []struct {
 		name     string
 		totalNum int
@@ -119,32 +111,20 @@ func BenchmarkSkiplistSearch(b *testing.B) {
 		{"dense 10k", 10000},
 	}
 	for _, bb := range benches {
-		b.Run(bb.name+"/rbtree", func(b *testing.B) {
+		b.Run(bb.name+"/"+reflect.TypeOf(adt).Elem().Name(), func(b *testing.B) {
 			nums := randNums(bb.totalNum)
-			rbt := New()
 			for _, n := range nums {
-				rbt.Insert(n, n)
+				adt.Insert(n, n)
 			}
 			targets := randTargets(bb.totalNum, b.N)
-			if !rbt.Validate() {
-				b.Error("Validate: the tree doesn't not hold red-black-tree's properties")
+			if x, ok := adt.(Validate); ok {
+				if !x.Validate() {
+					b.Error("Validate: the adt does not hold expected properties.")
+				}
 			}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_ = rbt.Search(targets[i])
-			}
-		})
-		b.Run(bb.name+"/slice", func(b *testing.B) {
-			nums := randNums(bb.totalNum)
-			slice := make([]sliceNode, 0)
-			for _, n := range nums {
-				slice = append(slice, sliceNode{Key: n, Value: n})
-			}
-			sort.Slice(slice, func(i, j int) bool { return slice[i].Key.Less(slice[j].Key) })
-			targets := randTargets(bb.totalNum, b.N)
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				sliceSearch(slice, targets[i])
+				_ = adt.Search(targets[i])
 			}
 		})
 	}

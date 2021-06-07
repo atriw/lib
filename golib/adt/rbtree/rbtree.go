@@ -3,12 +3,9 @@ package rbtree
 import (
 	"fmt"
 	"strings"
-)
 
-type KeyType interface {
-	Less(interface{}) bool
-	Equal(interface{}) bool
-}
+	"github.com/atriw/lib/golib/adt"
+)
 
 type color int
 
@@ -19,7 +16,7 @@ const (
 )
 
 type node struct {
-	Key   KeyType
+	Key   adt.Key
 	Value interface{}
 
 	parent *node
@@ -28,7 +25,7 @@ type node struct {
 	color  color
 }
 
-func newInternalNode(key KeyType, value interface{}) *node {
+func newInternalNode(key adt.Key, value interface{}) *node {
 	n := &node{Key: key, Value: value, color: colorRed}
 	e1 := newExternalNode(n)
 	e2 := newExternalNode(n)
@@ -150,7 +147,7 @@ func (t *RBTree) Length() int {
 	return t.length
 }
 
-func (t *RBTree) Search(key KeyType) interface{} {
+func (t *RBTree) Search(key adt.Key) interface{} {
 	p, dir := t.search(key)
 	if p.isExternal() {
 		return nil
@@ -175,7 +172,7 @@ const (
 // - the root is external, returns root, self.
 // - finds the exact node, returns node, self.
 // - no exact match found, stops at external node, returns the parent of the external node, and direction refering to it.
-func (t *RBTree) search(key KeyType) (p *node, dir direction) {
+func (t *RBTree) search(key adt.Key) (p *node, dir direction) {
 	n := t.root
 	p = n
 	for !n.isExternal() {
@@ -195,7 +192,7 @@ func (t *RBTree) search(key KeyType) (p *node, dir direction) {
 	return p, dir
 }
 
-func (t *RBTree) Insert(key KeyType, value interface{}) {
+func (t *RBTree) Insert(key adt.Key, value interface{}) {
 	p, dir := t.search(key)
 	// Find existing key.
 	if !p.isExternal() && dir == self {
@@ -323,7 +320,7 @@ func (t *RBTree) rightRotate(r *node) {
 	l.right = r
 }
 
-func (t *RBTree) Remove(key KeyType) interface{} {
+func (t *RBTree) Delete(key adt.Key) interface{} {
 	n, dir := t.search(key)
 	if dir != self {
 		return nil
@@ -333,11 +330,11 @@ func (t *RBTree) Remove(key KeyType) interface{} {
 	}
 	t.length--
 	v := n.Value
-	t.remove(n)
+	t.delete(n)
 	return v
 }
 
-func (t *RBTree) remove(n *node) {
+func (t *RBTree) delete(n *node) {
 	if n.isFull() {
 		succ := n.successor()
 		n.Key, n.Value = succ.Key, succ.Value
