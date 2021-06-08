@@ -313,3 +313,45 @@ func (t *RBTree23) Length() int {
 func (t *RBTree23) String() string {
 	return adt.PrintTree(t.root)
 }
+
+func (t *RBTree23) Validate() bool {
+	return t.root.propertyRedHasNoRedChildren() && t.root.propertyBlackHeightEqual()
+}
+
+func (n *node23) propertyRedHasNoRedChildren() bool {
+	if n == nil {
+		return true
+	}
+	if n.isRed() {
+		if n.left.isRed() || n.right.isRed() {
+			return false
+		}
+	}
+	return n.left.propertyRedHasNoRedChildren() && n.right.propertyRedHasNoRedChildren()
+}
+
+func (n *node23) propertyBlackHeightEqual() bool {
+	_, t := n.blackHeight()
+	return t
+}
+
+func (n *node23) blackHeight() (int, bool) {
+	if n == nil {
+		return 0, true
+	}
+	lbh, ok := n.left.blackHeight()
+	if !ok {
+		return 0, false
+	}
+	rbh, ok := n.right.blackHeight()
+	if !ok {
+		return 0, false
+	}
+	if lbh != rbh {
+		return 0, false
+	}
+	if !n.isRed() {
+		lbh += 1
+	}
+	return lbh, true
+}
