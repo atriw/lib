@@ -55,22 +55,29 @@ func TestSlice(t *testing.T) {
 	XTestADT(t, s)
 }
 
-func BenchmarkSliceSearch(b *testing.B) {
-	s := &slice{}
-	XBenchSearch(b, s)
+type constructor func() ADT
+
+var adts = []constructor{
+	func() ADT { return &slice{} },
+	func() ADT { return rbtree.New() },
+	func() ADT { return rbtree.New23() },
+	func() ADT { return skiplist.New(skiplist.WithMaxLevel(15)) },
 }
 
-func BenchmarkRBTreeSearch(b *testing.B) {
-	rbt := rbtree.New()
-	XBenchSearch(b, rbt)
+func BenchmarkSearch(b *testing.B) {
+	for _, adt := range adts {
+		XBenchSearch(b, adt)
+	}
 }
 
-func BenchmarkRBTree23Search(b *testing.B) {
-	rbt := rbtree.New23()
-	XBenchSearch(b, rbt)
+func BenchmarkInsert(b *testing.B) {
+	for _, adt := range adts {
+		XBenchInsert(b, adt)
+	}
 }
 
-func BenchmarkSkiplistSearch(b *testing.B) {
-	sl := skiplist.New(skiplist.WithMaxLevel(15))
-	XBenchSearch(b, sl)
+func BenchmarkDelete(b *testing.B) {
+	for _, adt := range adts {
+		XBenchDelete(b, adt)
+	}
 }
