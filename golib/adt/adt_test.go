@@ -18,6 +18,12 @@ type slice struct {
 }
 
 func (s *slice) Insert(key Key, value interface{}) {
+	for _, e := range s.s {
+		if e.key.Equal(key) {
+			e.value = value
+			return
+		}
+	}
 	s.s = append(s.s, &sliceEntry{key: key, value: value})
 }
 
@@ -56,6 +62,11 @@ func BenchmarkSliceSearch(b *testing.B) {
 
 func BenchmarkRBTreeSearch(b *testing.B) {
 	rbt := rbtree.New()
+	XBenchSearch(b, rbt)
+}
+
+func BenchmarkRBTree23Search(b *testing.B) {
+	rbt := rbtree.New23()
 	XBenchSearch(b, rbt)
 }
 
