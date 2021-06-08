@@ -32,14 +32,18 @@ func XTestADT(t *testing.T, adt ADT) {
 	}
 	if x, ok := adt.(Validate); ok {
 		if !x.Validate() {
-			t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+			t.Error("Validate: the adt does not hold expected properties.")
 		}
 	}
 	for _, n := range toRemove {
+		t.Logf("Delete key %v", n)
 		v := adt.Delete(n)
 		i, ok := v.(key)
 		if !ok || !i.Equal(n*2) {
 			t.Errorf("Remove: expected %v, actual %v", n, v)
+		}
+		if x, ok := adt.(interface{ String() string }); ok {
+			t.Log("\n" + x.String())
 		}
 	}
 	if adt.Length() != len(nums)-len(toRemove) {
@@ -85,7 +89,7 @@ func XTestADT(t *testing.T, adt ADT) {
 	}
 	if x, ok := adt.(Validate); ok {
 		if !x.Validate() {
-			t.Error("Validate: the tree doesn't hold red-black-tree's properties")
+			t.Error("Validate: the adt does not hold expected properties.")
 		}
 	}
 }

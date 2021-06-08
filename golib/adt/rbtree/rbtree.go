@@ -14,6 +14,13 @@ const (
 	colorDoubleBlack
 )
 
+func complement(c color) color {
+	if c == colorRed {
+		return colorBlack
+	}
+	return colorRed
+}
+
 type node struct {
 	Key   adt.Key
 	Value interface{}
