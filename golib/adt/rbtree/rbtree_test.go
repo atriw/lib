@@ -13,6 +13,5 @@ func TestRBTree(t *testing.T) {
 }
 
 func BenchmarkRBTreeSearch(b *testing.B) {
-	rbt := New()
-	adt.XBenchSearch(b, rbt)
+	adt.XBenchSearch(b, func() adt.ADT { return New() })
 }

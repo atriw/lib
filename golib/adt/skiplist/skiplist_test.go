@@ -13,6 +13,5 @@ func TestSkiplist(t *testing.T) {
 }
 
 func BenchmarkSkiplistSearch(b *testing.B) {
-	sl := New(WithMaxLevel(15))
-	adt.XBenchSearch(b, sl)
+	adt.XBenchSearch(b, func() adt.ADT { return New(WithMaxLevel(15)) })
 }
