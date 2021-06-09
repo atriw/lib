@@ -160,8 +160,9 @@ func XBenchInsert(b *testing.B, f func() ADT) {
 		name     string
 		totalNum int
 		sparse   bool
+		print    bool
 	}{
-		{name: "dense 1k", totalNum: 1000},
+		{name: "dense 1k", totalNum: 1000, print: true},
 		{name: "dense 10k", totalNum: 10000},
 		{name: "sparse 1k", totalNum: 1000, sparse: true},
 		{name: "sparse 10k", totalNum: 10000, sparse: true},
@@ -179,6 +180,14 @@ func XBenchInsert(b *testing.B, f func() ADT) {
 			for i := 0; i < b.N; i++ {
 				n := nums[i%len(nums)]
 				adt.Insert(n, nil)
+			}
+			if x, ok := adt.(Validate); ok {
+				if !x.Validate() {
+					b.Error("Validate: the adt does not hold expected properties.")
+					if x, ok := adt.(interface{ String() string }); ok && bb.print {
+						b.Log("\n" + x.String())
+					}
+				}
 			}
 		})
 	}
