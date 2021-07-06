@@ -32,11 +32,15 @@ func newNode(leaf bool, order int) *node {
 	}
 }
 
-func (n *node) isFull() bool {
+func (n *node) size() int {
 	if n.leaf {
-		return n.n == len(n.keys)
+		return n.n
 	}
-	return n.n == len(n.keys)-1
+	return n.n + 1
+}
+
+func (n *node) isFull() bool {
+	return n.size() == len(n.keys)
 }
 
 func (n *node) leafInsert(key adt.Key, value interface{}) {
@@ -238,7 +242,269 @@ func (t *BPTree) insertInternal(n *node, l adt.Key, s *node) (split *node, lastK
 }
 
 func (t *BPTree) Delete(key adt.Key) interface{} {
-	return nil
+	var deleted interface{} = 0
+	t.delete(t.root, key, &deleted)
+	return deleted
+}
+
+func (t *BPTree) delete(n *node, key adt.Key, deleted *interface{}) (underflow bool) {
+	if n == nil {
+		return
+	}
+	if n.leaf {
+		n.leafDelete(key, deleted)
+		return n.underflow()
+	}
+	// Finds the first key which is greater or equal than the needed key.
+	idx, _ := find(n.keys, key, n.n)
+	// Recurs into its left child.
+	underflow = t.delete(n.children[idx], key, deleted)
+	if !underflow {
+		return
+	}
+	if idx == n.n {
+		return t.underflow(n, idx-1, true)
+	}
+	return t.underflow(n, idx, false)
+}
+
+func (t *BPTree) underflow(n *node, idx int, last bool) (underflow bool) {
+	// Merge right sibling into the underflow node.
+	// And delete the sibling and the key whose right child is the sibling.
+	left := n.children[idx]
+	right := n.children[idx+1]
+	if (!last && t.shouldMerge(right)) || (last && t.shouldMerge(left)) {
+		n.merge(n.keys[idx], left, right)
+		n.internalDelete(idx)
+		return n.underflow()
+	}
+	from, to := right, left
+	if last {
+		from, to = to, from
+	}
+	n.keys[idx] = n.transfer(n.keys[idx], from, to, last)
+	return false
+}
+
+func (t *BPTree) half() int {
+	return (t.order + 1) / 2
+}
+
+func (t *BPTree) shouldMerge(n *node) bool {
+	return n.size() <= t.half()+1
+}
+
+// merge merges right into left.
+func (n *node) merge(mid adt.Key, left, right *node) {
+	// Internal merge.
+	if !left.leaf {
+		// Append mid key from parent to left keys.
+		left.keys[left.n] = mid
+		left.n++
+		// Move all keys from right to left.
+		for i := 0; i < right.n; i++ {
+			left.keys[left.n+i] = right.keys[i]
+			left.children[left.n+i] = right.children[i]
+		}
+		// Move the last child from right to left
+		left.children[left.n+right.n] = right.children[right.n]
+		left.n += right.n
+		return
+	}
+	for i := 0; i < right.n; i++ {
+		left.keys[left.n+i] = right.keys[i]
+		left.values[left.n+i] = right.values[i]
+	}
+	left.n += right.n
+}
+
+// Delete the idxth key and its right child in an internal node.
+func (n *node) internalDelete(idx int) {
+	for i := idx; i < n.n; i++ {
+		n.keys[i] = n.keys[i+1]
+		n.children[i+1] = n.children[i+2]
+	}
+	n.n--
+}
+
+// Find and delete a key in a leaf node.
+func (n *node) leafDelete(key adt.Key, deleted *interface{}) {
+	for i := 0; i < n.n; i++ {
+		if key.Equal(n.values[i]) {
+			*deleted = n.values[i]
+			for j := i; j < n.n-1; j++ {
+				n.keys[j] = n.keys[j+1]
+				n.values[j] = n.values[j+1]
+			}
+			n.n--
+			return
+		}
+		// TODO: early return
+	}
+}
+
+func (n *node) underflow() bool {
+	return n.numToFillUnderflow() > 0
+}
+
+func (n *node) numToFillUnderflow() int {
+	return (len(n.keys)+1)/2 - n.size()
+}
+
+func (n *node) transfer(mid adt.Key, from, to *node, leftToRight bool) adt.Key {
+	total := to.numToFillUnderflow()
+	if leftToRight {
+		return transferLeftRight(mid, from, to, total)
+	}
+	return transferRightLeft(mid, from, to, total)
+}
+
+func (n *node) leafAppendRight(keys []adt.Key, values []interface{}) {
+	for i := 0; i < len(keys); i++ {
+		n.keys[n.n+i] = keys[i]
+		n.values[n.n+i] = values[i]
+	}
+	n.n += len(keys)
+}
+
+func (n *node) leafAppendLeft(keys []adt.Key, values []interface{}) {
+	fill := len(keys)
+	for i := fill + n.n - 1; i >= fill; i-- {
+		n.keys[i] = n.keys[i-fill]
+		n.values[i] = n.values[i-fill]
+	}
+	for i := 0; i < fill; i++ {
+		n.keys[i] = keys[i]
+		n.values[i] = values[i]
+	}
+	n.n += fill
+}
+
+func (n *node) internalAppendRight(keys []adt.Key, children []*node) {
+	for i := 0; i < len(keys); i++ {
+		n.keys[n.n+i] = keys[i]
+		n.children[n.n+i] = children[i]
+	}
+	n.n += len(keys)
+}
+
+func (n *node) internalAppendLeft(keys []adt.Key, children []*node) {
+	fill := len(keys)
+	for i := fill + n.n - 1; i >= fill; i-- {
+		n.keys[i] = n.keys[i-fill]
+		n.children[i] = n.children[i-fill]
+	}
+	for i := 0; i < fill; i++ {
+		n.keys[i] = keys[i]
+		n.children[i] = children[i]
+	}
+	n.n += fill
+}
+
+func (n *node) internalAppendRightKey(key adt.Key) {
+	n.keys[n.n] = key
+	n.n++
+}
+
+func (n *node) internalAppendLeftKey(key adt.Key) {
+	for i := n.n; i >= 1; i-- {
+		n.keys[i] = n.keys[i-1]
+	}
+	n.keys[0] = key
+	n.n++
+}
+
+func (n *node) internalPopRightKey() adt.Key {
+	n.n--
+	return n.keys[n.n]
+}
+
+func (n *node) internalPopLeftKey() adt.Key {
+	mid := n.keys[0]
+	for i := 0; i < n.n-1; i++ {
+		n.keys[i] = n.keys[i+1]
+	}
+	n.n--
+	return mid
+}
+
+func (n *node) leafPopLeft(num int) (keys []adt.Key, values []interface{}) {
+	if n.n < num {
+		panic("pop")
+	}
+	for i := 0; i < num; i++ {
+		keys = append(keys, n.keys[i])
+		values = append(values, n.values[i])
+	}
+	for i := 0; i < n.n-num; i++ {
+		n.keys[i] = n.keys[i+num]
+		n.values[i] = n.values[i+num]
+	}
+	n.n -= num
+	return keys, values
+}
+
+func (n *node) leafPopRight(num int) (keys []adt.Key, values []interface{}) {
+	for i := n.n - num; i < n.n; i++ {
+		keys = append(keys, n.keys[i])
+		values = append(values, n.values[i])
+	}
+	n.n -= num
+	return keys, values
+}
+
+func (n *node) internalPopLeft(num int) (keys []adt.Key, children []*node) {
+	if n.n < num {
+		panic("pop")
+	}
+	for i := 0; i < num; i++ {
+		keys = append(keys, n.keys[i])
+		children = append(children, n.children[i])
+	}
+	for i := 0; i < n.n-num; i++ {
+		n.keys[i] = n.keys[i+num]
+		n.children[i] = n.children[i+num]
+	}
+	n.n -= num
+	return keys, children
+}
+
+func (n *node) internalPopRight(num int) (keys []adt.Key, children []*node) {
+	for i := n.n - num; i < n.n; i++ {
+		keys = append(keys, n.keys[i])
+		children = append(children, n.children[i])
+	}
+	n.n -= num
+	return keys, children
+}
+
+func (n *node) lastKey() adt.Key {
+	return n.keys[n.n-1]
+}
+
+// Transfer from right to left
+func transferRightLeft(mid adt.Key, from, to *node, num int) adt.Key {
+	if from.leaf {
+		keys, values := from.leafPopLeft(num)
+		to.leafAppendRight(keys, values)
+		return to.lastKey()
+	}
+	to.internalAppendRightKey(mid)
+	keys, children := from.internalPopLeft(num)
+	to.internalAppendRight(keys, children)
+	return to.internalPopRightKey()
+}
+
+func transferLeftRight(mid adt.Key, from, to *node, num int) adt.Key {
+	if from.leaf {
+		keys, values := from.leafPopRight(num)
+		to.leafAppendLeft(keys, values)
+		return from.lastKey()
+	}
+	to.internalAppendLeftKey(mid)
+	keys, children := from.internalPopRight(num)
+	to.internalAppendLeft(keys, children)
+	return to.internalPopLeftKey()
 }
 
 func (t *BPTree) Length() int {
@@ -291,7 +557,7 @@ func (t *BPTree) height(n *node) (int, bool) {
 }
 
 func (t *BPTree) propertyHalfFull(n *node) bool {
-	half := (t.order + 1) / 2
+	half := t.half()
 	if n == nil {
 		return true
 	}
