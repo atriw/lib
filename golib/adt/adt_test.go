@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	. "github.com/atriw/lib/golib/adt"
+	"github.com/atriw/lib/golib/adt/bptree"
 	"github.com/atriw/lib/golib/adt/rbtree"
 	"github.com/atriw/lib/golib/adt/skiplist"
 )
@@ -62,6 +63,7 @@ var adts = []constructor{
 	func() ADT { return rbtree.New() },
 	func() ADT { return rbtree.New23() },
 	func() ADT { return skiplist.New(skiplist.WithMaxLevel(15)) },
+	func() ADT { return bptree.New(bptree.WithOrder(10)) },
 }
 
 func BenchmarkSearch(b *testing.B) {

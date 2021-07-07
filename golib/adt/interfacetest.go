@@ -205,8 +205,7 @@ func XBenchDelete(b *testing.B, f func() ADT) {
 		{name: "sparse 10k", totalNum: 10000, sparse: true},
 	}
 	for _, bb := range benches {
-		adt := f()
-		b.Run(bb.name+"/"+reflect.TypeOf(adt).Elem().Name(), func(b *testing.B) {
+		b.Run(bb.name+"/"+reflect.TypeOf(f()).Elem().Name(), func(b *testing.B) {
 			numBuckets := b.N / bb.totalNum
 			if numBuckets < 1 {
 				numBuckets = 1

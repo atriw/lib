@@ -13,11 +13,11 @@ type TreeNode interface {
 
 func PrintTree(n TreeNode) string {
 	var sb strings.Builder
-	printTree(n, &sb, "", "")
+	printTree(n, &sb, "", "", -1)
 	return sb.String()
 }
 
-func printTree(n TreeNode, sb *strings.Builder, prefix, childPrefix string) {
+func printTree(n TreeNode, sb *strings.Builder, prefix, childPrefix string, depth int) {
 	sb.WriteString(prefix)
 	if x, ok := n.(interface{ String() string }); ok {
 		sb.WriteString(x.String())
@@ -25,11 +25,11 @@ func printTree(n TreeNode, sb *strings.Builder, prefix, childPrefix string) {
 		sb.WriteString(fmt.Sprint(n))
 	}
 	sb.WriteString("\n")
-	if n.External() {
+	if n.External() || depth == 0 {
 		return
 	}
-	printTree(n.Right(), sb, childPrefix+"├── ", childPrefix+"│   ")
-	printTree(n.Left(), sb, childPrefix+"└── ", childPrefix+"    ")
+	printTree(n.Right(), sb, childPrefix+"├── ", childPrefix+"│   ", depth-1)
+	printTree(n.Left(), sb, childPrefix+"└── ", childPrefix+"    ", depth-1)
 }
 
 type MultiWayTreeNode interface {
@@ -43,11 +43,17 @@ type Iterator interface {
 
 func PrintMultiWayTree(n MultiWayTreeNode) string {
 	var sb strings.Builder
-	printMultiWayTree(n, &sb, "", "")
+	printMultiWayTree(n, &sb, "", "", -1)
 	return sb.String()
 }
 
-func printMultiWayTree(n MultiWayTreeNode, sb *strings.Builder, prefix, childPrefix string) {
+func PrintMultiWayTreeDepth(n MultiWayTreeNode, depth int) string {
+	var sb strings.Builder
+	printMultiWayTree(n, &sb, "", "", depth)
+	return sb.String()
+}
+
+func printMultiWayTree(n MultiWayTreeNode, sb *strings.Builder, prefix, childPrefix string, depth int) {
 	sb.WriteString(prefix)
 	if x, ok := n.(interface{ String() string }); ok {
 		sb.WriteString(x.String())
@@ -56,15 +62,15 @@ func printMultiWayTree(n MultiWayTreeNode, sb *strings.Builder, prefix, childPre
 	}
 	sb.WriteString("\n")
 	it := n.Iterator()
-	if it == nil {
+	if it == nil || depth == 0 {
 		return
 	}
 	for it.HasNext() {
 		next := it.Next()
 		if it.HasNext() {
-			printMultiWayTree(next, sb, childPrefix+"├── ", childPrefix+"│   ")
+			printMultiWayTree(next, sb, childPrefix+"├── ", childPrefix+"│   ", depth-1)
 		} else {
-			printMultiWayTree(next, sb, childPrefix+"└── ", childPrefix+"    ")
+			printMultiWayTree(next, sb, childPrefix+"└── ", childPrefix+"    ", depth-1)
 		}
 	}
 }
