@@ -12,8 +12,12 @@ func TestBPTree(t *testing.T) {
 	adt.XTestADT(t, bpt)
 }
 
+func BenchmarkBPTreeSearch(b *testing.B) {
+	adt.XBenchSearch(b, func() adt.ADT { return New(WithOrder(11)) })
+}
+
 func BenchmarkBPTreeInsert(b *testing.B) {
-	adt.XBenchInsert(b, func() adt.ADT { return New(WithOrder(4)) })
+	adt.XBenchInsert(b, func() adt.ADT { return New(WithOrder(11)) })
 }
 
 func BenchmarkBPTreeDelete(b *testing.B) {

@@ -7,6 +7,9 @@ import (
 	"github.com/atriw/lib/golib/adt"
 )
 
+const debug = false
+const validate = false
+
 type node struct {
 	leaf     bool
 	n        int
@@ -95,7 +98,7 @@ func (n *node) leafInsert(key adt.Key, value interface{}) {
 func (n *node) internalInsert(key adt.Key, child *node) {
 	idx, exact := find(n.keys, key, n.n)
 	if exact {
-		panic("duplicate internal insert")
+		panic(fmt.Sprintf("duplicate internal insert: key %v, node:\n%v\nchild:\n%v\n", key, adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(child, 1)))
 	}
 	n.keys.insert(key, idx, n.n)
 	n.children.insert(child, idx+1, n.n+1)
@@ -202,15 +205,17 @@ func (t *BPTree) search(n *node, key adt.Key) interface{} {
 }
 
 func (t *BPTree) Insert(key adt.Key, value interface{}) {
-	backup := adt.PrintMultiWayTree(t.root)
-	defer func() {
-		if !t.propertyHalfFull(t.root) {
-			panic(fmt.Sprintf("insert %v, not half full, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
-		}
-		if !t.propertySameHeight() {
-			panic(fmt.Sprintf("insert %v, not same height, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
-		}
-	}()
+	if validate {
+		backup := adt.PrintMultiWayTree(t.root)
+		defer func() {
+			if !t.propertyHalfFull(t.root) {
+				panic(fmt.Sprintf("insert %v, not half full, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
+			}
+			if !t.propertySameHeight() {
+				panic(fmt.Sprintf("insert %v, not same height, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
+			}
+		}()
+	}
 	if t.root == nil {
 		t.root = newNode(true, t.order)
 		t.root.leafInsert(key, value)
@@ -234,6 +239,9 @@ func (t *BPTree) insert(n *node, key adt.Key, value interface{}) (split *node, l
 		return t.insertLeaf(n, key, value)
 	}
 	idx, _ := find(n.keys, key, n.n)
+	if debug {
+		fmt.Println("insert", key, n.children[idx])
+	}
 	s, l := t.insert(n.children[idx], key, value)
 	if s == nil {
 		return nil, nil
@@ -242,8 +250,15 @@ func (t *BPTree) insert(n *node, key adt.Key, value interface{}) (split *node, l
 }
 
 func (t *BPTree) insertLeaf(n *node, key adt.Key, value interface{}) (split *node, lastKey adt.Key) {
+	idx, exact := find(n.keys, key, n.n)
+	if exact {
+		n.values[idx] = value
+		return
+	}
 	if !n.isFull() {
-		n.leafInsert(key, value)
+		n.keys.insert(key, idx, n.n)
+		n.values.insert(value, idx, n.n)
+		n.n++
 		return nil, nil
 	}
 	split = newNode(true, t.order)
@@ -271,12 +286,12 @@ func (t *BPTree) insertInternal(n *node, l adt.Key, s *node) (split *node, lastK
 		n.internalInsert(l, s)
 		return nil, nil
 	}
+	if debug {
+		fmt.Println("split", l, adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(s, 1))
+	}
 	split = newNode(false, t.order)
 	half := n.n / 2
 	insertLeft := l.Less(n.keys[half])
-	if !insertLeft {
-		half -= 1
-	}
 	for i := 0; i < half; i++ {
 		split.keys[i] = n.keys[i+n.n-half]
 		split.children[i] = n.children[i+n.n-half]
@@ -291,19 +306,24 @@ func (t *BPTree) insertInternal(n *node, l adt.Key, s *node) (split *node, lastK
 	} else {
 		split.internalInsert(l, s)
 	}
+	if debug {
+		fmt.Println("split result", adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(split, 1))
+	}
 	return split, lastKey
 }
 
 func (t *BPTree) Delete(key adt.Key) interface{} {
-	backup := adt.PrintMultiWayTree(t.root)
-	defer func() {
-		if !t.propertyHalfFull(t.root) {
-			panic(fmt.Sprintf("delete %v, not half full, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
-		}
-		if !t.propertySameHeight() {
-			panic(fmt.Sprintf("delete %v, not same height, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
-		}
-	}()
+	if validate {
+		backup := adt.PrintMultiWayTree(t.root)
+		defer func() {
+			if !t.propertyHalfFull(t.root) {
+				panic(fmt.Sprintf("delete %v, not half full, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
+			}
+			if !t.propertySameHeight() {
+				panic(fmt.Sprintf("delete %v, not same height, tree: \n%v\nbackup: \n%v\n", key, adt.PrintMultiWayTree(t.root), backup))
+			}
+		}()
+	}
 	if t.root == nil {
 		return nil
 	}
@@ -326,12 +346,16 @@ func (t *BPTree) delete(n *node, key adt.Key, deleted *interface{}) (underflow b
 	// Finds the first key which is greater or equal than the needed key.
 	idx, _ := find(n.keys, key, n.n)
 	// Recurs into its left child.
-	fmt.Println("delete", key, adt.PrintMultiWayTree(n.children[idx]))
+	if debug {
+		fmt.Println("delete", key, adt.PrintMultiWayTree(n.children[idx]))
+	}
 	underflow = t.delete(n.children[idx], key, deleted)
 	if !underflow {
 		return
 	}
-	fmt.Println("underflow", adt.PrintMultiWayTreeDepth(n.children[idx], 1))
+	if debug {
+		fmt.Println("underflow", adt.PrintMultiWayTreeDepth(n.children[idx], 1))
+	}
 	if idx == n.n {
 		return t.underflow(n, idx-1, true)
 	}
@@ -356,6 +380,9 @@ func (t *BPTree) underflow(n *node, idx int, last bool) (underflow bool) {
 		from, to = to, from
 	}
 	n.keys[idx] = n.transfer(n.keys[idx], from, to, last)
+	if debug {
+		fmt.Println("transfer result", adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(from, 1), adt.PrintMultiWayTreeDepth(to, 1))
+	}
 	return false
 }
 
@@ -369,13 +396,22 @@ func (t *BPTree) shouldMerge(n *node) bool {
 
 // merge merges right into left.
 func (n *node) merge(mid adt.Key, left, right *node) {
-	fmt.Println("merge", adt.PrintMultiWayTreeDepth(left, 1), adt.PrintMultiWayTreeDepth(right, 1))
+	defer func() {
+		if debug {
+			fmt.Println("merge result", adt.PrintMultiWayTreeDepth(left, 1))
+		}
+	}()
+	if debug {
+		fmt.Println("merge", adt.PrintMultiWayTreeDepth(left, 1), adt.PrintMultiWayTreeDepth(right, 1))
+	}
 	// Internal merge.
 	if !left.leaf {
 		// Append mid key from parent to left keys.
 		left.internalAppendRightKey(mid)
 		// Move all keys from right to left.
 		left.internalAppendRight(right.n, right.keys, right.children)
+		// Move the last children
+		left.children[left.n] = right.children[right.n]
 		return
 	}
 	left.leafAppendRight(right.n, right.keys, right.values)
@@ -411,7 +447,9 @@ func (n *node) numToFillUnderflow() int {
 }
 
 func (n *node) transfer(mid adt.Key, from, to *node, leftToRight bool) adt.Key {
-	fmt.Println("transfer", adt.PrintMultiWayTreeDepth(from, 1), adt.PrintMultiWayTreeDepth(to, 1))
+	if debug {
+		fmt.Println("transfer", mid, adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(from, 1), adt.PrintMultiWayTreeDepth(to, 1))
+	}
 	total := to.numToFillUnderflow()
 	if leftToRight {
 		return transferLeftRight(mid, from, to, total)
@@ -525,6 +563,7 @@ func (n *node) internalPopLeft(num int) (keys []adt.Key, children []*node) {
 		n.keys[i] = n.keys[i+num]
 		n.children[i] = n.children[i+num]
 	}
+	n.children[n.n-num] = n.children[n.n]
 	n.n -= num
 	return keys, children
 }
@@ -532,7 +571,7 @@ func (n *node) internalPopLeft(num int) (keys []adt.Key, children []*node) {
 func (n *node) internalPopRight(num int) (keys []adt.Key, children []*node) {
 	for i := n.n - num; i < n.n; i++ {
 		keys = append(keys, n.keys[i])
-		children = append(children, n.children[i])
+		children = append(children, n.children[i+1])
 	}
 	n.n -= num
 	return keys, children
