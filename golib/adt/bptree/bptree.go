@@ -326,10 +326,12 @@ func (t *BPTree) delete(n *node, key adt.Key, deleted *interface{}) (underflow b
 	// Finds the first key which is greater or equal than the needed key.
 	idx, _ := find(n.keys, key, n.n)
 	// Recurs into its left child.
+	fmt.Println("delete", key, adt.PrintMultiWayTree(n.children[idx]))
 	underflow = t.delete(n.children[idx], key, deleted)
 	if !underflow {
 		return
 	}
+	fmt.Println("underflow", adt.PrintMultiWayTreeDepth(n.children[idx], 1))
 	if idx == n.n {
 		return t.underflow(n, idx-1, true)
 	}
