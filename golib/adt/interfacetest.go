@@ -27,14 +27,7 @@ func XTestADT(t *testing.T, adt ADT) {
 	if adt.Length() != len(nums) {
 		t.Errorf("Insert: expected len %v, actual len %v", len(nums), adt.Length())
 	}
-	if x, ok := adt.(interface{ String() string }); ok {
-		t.Log("\n" + x.String())
-	}
-	if x, ok := adt.(Validate); ok {
-		if !x.Validate() {
-			t.Error("Validate: the adt does not hold expected properties.")
-		}
-	}
+	validate(t, adt)
 	for _, n := range toRemove {
 		t.Logf("Delete key %v", n)
 		v := adt.Delete(n)
@@ -84,14 +77,7 @@ func XTestADT(t *testing.T, adt ADT) {
 			}
 		}
 	}
-	if x, ok := adt.(interface{ String() string }); ok {
-		t.Log("\n" + x.String())
-	}
-	if x, ok := adt.(Validate); ok {
-		if !x.Validate() {
-			t.Error("Validate: the adt does not hold expected properties.")
-		}
-	}
+	validate(t, adt)
 }
 
 func randNums(n int) []key {
@@ -131,14 +117,7 @@ func XBenchSearch(b *testing.B, f func() ADT) {
 			for _, n := range nums {
 				adt.Insert(n, n)
 			}
-			var validate = func() {
-				if x, ok := adt.(Validate); ok {
-					if !x.Validate() {
-						b.Error("Validate: the adt does not hold expected properties.")
-					}
-				}
-			}
-			validate()
+			validate(b, adt)
 			targets := randTargets(bb.totalNum, b.N)
 			if bb.sparse {
 				toRemove := randTargets(bb.totalNum, bb.totalNum/2)
@@ -146,7 +125,7 @@ func XBenchSearch(b *testing.B, f func() ADT) {
 					adt.Delete(n)
 				}
 			}
-			validate()
+			validate(b, adt)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = adt.Search(targets[i])
@@ -160,9 +139,8 @@ func XBenchInsert(b *testing.B, f func() ADT) {
 		name     string
 		totalNum int
 		sparse   bool
-		print    bool
 	}{
-		{name: "dense 1k", totalNum: 1000, print: true},
+		{name: "dense 1k", totalNum: 1000},
 		{name: "dense 10k", totalNum: 10000},
 		{name: "sparse 1k", totalNum: 1000, sparse: true},
 		{name: "sparse 10k", totalNum: 10000, sparse: true},
@@ -181,14 +159,8 @@ func XBenchInsert(b *testing.B, f func() ADT) {
 				n := nums[i%len(nums)]
 				adt.Insert(n, nil)
 			}
-			if x, ok := adt.(Validate); ok {
-				if !x.Validate() {
-					b.Error("Validate: the adt does not hold expected properties.")
-					if x, ok := adt.(interface{ String() string }); ok && bb.print {
-						b.Log("\n" + x.String())
-					}
-				}
-			}
+			b.StopTimer()
+			validate(b, adt)
 		})
 	}
 }
@@ -232,6 +204,21 @@ func XBenchDelete(b *testing.B, f func() ADT) {
 			for i := 0; i < b.N; i++ {
 				_ = buckets[i%len(buckets)].Delete(targets[i])
 			}
+			b.StopTimer()
+			for _, bucket := range buckets {
+				validate(b, bucket)
+			}
 		})
+	}
+}
+
+func validate(tb testing.TB, adt ADT) {
+	if x, ok := adt.(Validate); ok {
+		if !x.Validate() {
+			tb.Errorf("Validate: the adt %v does not hold expectd properties.", reflect.TypeOf(adt).Elem().Name())
+			if x, ok := adt.(interface{ String() string }); ok {
+				tb.Log("\n" + x.String())
+			}
+		}
 	}
 }
