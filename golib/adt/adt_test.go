@@ -61,7 +61,7 @@ type constructor func() ADT
 var adts = []constructor{
 	func() ADT { return &slice{} },
 	func() ADT { return rbtree.New() },
-	func() ADT { return rbtree.New23() },
+	func() ADT { return rbtree.NewLL() },
 	func() ADT { return skiplist.New(skiplist.WithMaxLevel(15)) },
 	func() ADT { return bptree.New(bptree.WithOrder(10)) },
 }

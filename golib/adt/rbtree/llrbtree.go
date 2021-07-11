@@ -6,31 +6,31 @@ import (
 	"github.com/atriw/lib/golib/adt"
 )
 
-type node23 struct {
+type llrbNode struct {
 	Key   adt.Key
 	Value interface{}
 
-	left  *node23
-	right *node23
+	left  *llrbNode
+	right *llrbNode
 	color color
 	n     int
 }
 
-func (n *node23) size() int {
+func (n *llrbNode) size() int {
 	if n == nil {
 		return 0
 	}
 	return n.n
 }
 
-func (n *node23) isRed() bool {
+func (n *llrbNode) isRed() bool {
 	if n == nil {
 		return false
 	}
 	return n.color == colorRed
 }
 
-func (n *node23) String() string {
+func (n *llrbNode) String() string {
 	if n == nil {
 		return "<nil>"
 	}
@@ -41,31 +41,31 @@ func (n *node23) String() string {
 	return fmt.Sprintf("[%v:%v:%v]", n.Key, n.Value, color)
 }
 
-func (n *node23) Left() adt.TreeNode {
+func (n *llrbNode) Left() adt.TreeNode {
 	return n.left
 }
 
-func (n *node23) Right() adt.TreeNode {
+func (n *llrbNode) Right() adt.TreeNode {
 	return n.right
 }
 
-func (n *node23) External() bool {
+func (n *llrbNode) External() bool {
 	return n == nil
 }
 
-type RBTree23 struct {
-	root *node23
+type LLRBTree struct {
+	root *llrbNode
 }
 
-func New23() *RBTree23 {
-	return &RBTree23{root: nil}
+func NewLL() *LLRBTree {
+	return &LLRBTree{root: nil}
 }
 
-func (t *RBTree23) Search(key adt.Key) interface{} {
+func (t *LLRBTree) Search(key adt.Key) interface{} {
 	return t.search(t.root, key)
 }
 
-func (t *RBTree23) search(n *node23, key adt.Key) interface{} {
+func (t *LLRBTree) search(n *llrbNode, key adt.Key) interface{} {
 	if n == nil {
 		return nil
 	}
@@ -78,14 +78,14 @@ func (t *RBTree23) search(n *node23, key adt.Key) interface{} {
 	return t.search(n.right, key)
 }
 
-func (t *RBTree23) Insert(key adt.Key, value interface{}) {
+func (t *LLRBTree) Insert(key adt.Key, value interface{}) {
 	t.root = t.insert(t.root, key, value)
 	t.root.color = colorBlack
 }
 
-func (t *RBTree23) insert(n *node23, key adt.Key, value interface{}) *node23 {
+func (t *LLRBTree) insert(n *llrbNode, key adt.Key, value interface{}) *llrbNode {
 	if n == nil {
-		return &node23{Key: key, Value: value, color: colorRed, n: 1}
+		return &llrbNode{Key: key, Value: value, color: colorRed, n: 1}
 	}
 	if key.Equal(n.Key) {
 		n.Value = value
@@ -109,7 +109,7 @@ func (t *RBTree23) insert(n *node23, key adt.Key, value interface{}) *node23 {
 	return n
 }
 
-func (t *RBTree23) leftRotate(n *node23) *node23 {
+func (t *LLRBTree) leftRotate(n *llrbNode) *llrbNode {
 	r := n.right
 	n.right = r.left
 	r.left = n
@@ -119,7 +119,7 @@ func (t *RBTree23) leftRotate(n *node23) *node23 {
 	return r
 }
 
-func (t *RBTree23) rightRotate(n *node23) *node23 {
+func (t *LLRBTree) rightRotate(n *llrbNode) *llrbNode {
 	l := n.left
 	n.left = l.right
 	l.right = n
@@ -129,20 +129,20 @@ func (t *RBTree23) rightRotate(n *node23) *node23 {
 	return l
 }
 
-func (t *RBTree23) flipColor(n *node23) {
+func (t *LLRBTree) flipColor(n *llrbNode) {
 	n.left.color = complement(n.left.color)
 	n.right.color = complement(n.right.color)
 	n.color = complement(n.color)
 }
 
-func (t *RBTree23) Delete(key adt.Key) interface{} {
+func (t *LLRBTree) Delete(key adt.Key) interface{} {
 	if t.root == nil {
 		return nil
 	}
 	if !t.root.left.isRed() && t.root.right.isRed() {
 		t.root.color = colorRed
 	}
-	deleted := &node23{}
+	deleted := &llrbNode{}
 	t.root = t.delete(t.root, key, deleted)
 	if t.root != nil {
 		t.root.color = colorBlack
@@ -150,7 +150,7 @@ func (t *RBTree23) Delete(key adt.Key) interface{} {
 	return deleted.Value
 }
 
-func (t *RBTree23) delete(n *node23, key adt.Key, deleted *node23) *node23 {
+func (t *LLRBTree) delete(n *llrbNode, key adt.Key, deleted *llrbNode) *llrbNode {
 	if n == nil {
 		return nil
 	}
@@ -171,7 +171,7 @@ func (t *RBTree23) delete(n *node23, key adt.Key, deleted *node23) *node23 {
 			n = t.moveRedRight(n)
 		}
 		if key.Equal(n.Key) {
-			min := &node23{}
+			min := &llrbNode{}
 			n.right = t.deleteMin(n.right, min)
 			deleted.Value = n.Value
 			n.Key = min.Key
@@ -183,7 +183,7 @@ func (t *RBTree23) delete(n *node23, key adt.Key, deleted *node23) *node23 {
 	return t.balance(n)
 }
 
-func (t *RBTree23) DeleteMin() (adt.Key, interface{}) {
+func (t *LLRBTree) DeleteMin() (adt.Key, interface{}) {
 	if t.root == nil {
 		return nil, nil
 	}
@@ -191,7 +191,7 @@ func (t *RBTree23) DeleteMin() (adt.Key, interface{}) {
 		// Invariant: current node is not 2-node.
 		t.root.color = colorRed
 	}
-	min := &node23{}
+	min := &llrbNode{}
 	t.root = t.deleteMin(t.root, min)
 	if t.root != nil {
 		t.root.color = colorBlack
@@ -199,7 +199,7 @@ func (t *RBTree23) DeleteMin() (adt.Key, interface{}) {
 	return min.Key, min.Value
 }
 
-func (t *RBTree23) deleteMin(n *node23, min *node23) *node23 {
+func (t *LLRBTree) deleteMin(n *llrbNode, min *llrbNode) *llrbNode {
 	if n.left == nil {
 		*min = *n
 		return nil
@@ -211,14 +211,14 @@ func (t *RBTree23) deleteMin(n *node23, min *node23) *node23 {
 	return t.balance(n)
 }
 
-func (t *RBTree23) DeleteMax() (adt.Key, interface{}) {
+func (t *LLRBTree) DeleteMax() (adt.Key, interface{}) {
 	if t.root == nil {
 		return nil, nil
 	}
 	if !t.root.left.isRed() {
 		t.root.color = colorRed
 	}
-	max := &node23{}
+	max := &llrbNode{}
 	t.root = t.deleteMax(t.root, max)
 	if t.root != nil {
 		t.root.color = colorBlack
@@ -226,7 +226,7 @@ func (t *RBTree23) DeleteMax() (adt.Key, interface{}) {
 	return max.Key, max.Value
 }
 
-func (t *RBTree23) deleteMax(n *node23, max *node23) *node23 {
+func (t *LLRBTree) deleteMax(n *llrbNode, max *llrbNode) *llrbNode {
 	if n.left.isRed() {
 		// Make 3-node right-leaned.
 		n = t.rightRotate(n)
@@ -242,7 +242,7 @@ func (t *RBTree23) deleteMax(n *node23, max *node23) *node23 {
 	return t.balance(n)
 }
 
-func (t *RBTree23) moveRedLeft(n *node23) *node23 {
+func (t *LLRBTree) moveRedLeft(n *llrbNode) *llrbNode {
 	//     n(r)                n(b)
 	//    /  \                /  \
 	//   x(b) y(b)  ---->    x(r) y(r)  2-node -> 4-node
@@ -264,7 +264,7 @@ func (t *RBTree23) moveRedLeft(n *node23) *node23 {
 	return n
 }
 
-func (t *RBTree23) moveRedRight(n *node23) *node23 {
+func (t *LLRBTree) moveRedRight(n *llrbNode) *llrbNode {
 	//     n(r)                n(b)
 	//    /  \                /  \
 	//   y(b) x(b)  ---->    y(r) x(r)  2-node -> 4-node
@@ -285,7 +285,7 @@ func (t *RBTree23) moveRedRight(n *node23) *node23 {
 	return n
 }
 
-func (t *RBTree23) balance(n *node23) *node23 {
+func (t *LLRBTree) balance(n *llrbNode) *llrbNode {
 	if n == nil {
 		return nil
 	}
@@ -306,19 +306,19 @@ func (t *RBTree23) balance(n *node23) *node23 {
 	return n
 }
 
-func (t *RBTree23) Length() int {
+func (t *LLRBTree) Length() int {
 	return t.root.size()
 }
 
-func (t *RBTree23) String() string {
+func (t *LLRBTree) String() string {
 	return adt.PrintTree(t.root)
 }
 
-func (t *RBTree23) Validate() bool {
+func (t *LLRBTree) Validate() bool {
 	return t.root.propertyRedHasNoRedChildren() && t.root.propertyBlackHeightEqual()
 }
 
-func (n *node23) propertyRedHasNoRedChildren() bool {
+func (n *llrbNode) propertyRedHasNoRedChildren() bool {
 	if n == nil {
 		return true
 	}
@@ -330,12 +330,12 @@ func (n *node23) propertyRedHasNoRedChildren() bool {
 	return n.left.propertyRedHasNoRedChildren() && n.right.propertyRedHasNoRedChildren()
 }
 
-func (n *node23) propertyBlackHeightEqual() bool {
+func (n *llrbNode) propertyBlackHeightEqual() bool {
 	_, t := n.blackHeight()
 	return t
 }
 
-func (n *node23) blackHeight() (int, bool) {
+func (n *llrbNode) blackHeight() (int, bool) {
 	if n == nil {
 		return 0, true
 	}
