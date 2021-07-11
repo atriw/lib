@@ -262,50 +262,47 @@ func (t *BPTree) insertLeaf(n *node, key adt.Key, value interface{}) (split *nod
 		return nil, nil
 	}
 	split = newNode(true, t.order)
-	half := n.n / 2
-	insertLeft := key.Less(n.keys[half])
-	if insertLeft {
-		half += 1
-	}
-	for i := 0; i < half; i++ {
-		split.keys[i] = n.keys[i+n.n-half]
-		split.values[i] = n.values[i+n.n-half]
-	}
-	n.n -= half
-	split.n = half
-	if insertLeft {
-		n.leafInsert(key, value)
-	} else {
-		split.leafInsert(key, value)
-	}
-	return split, n.keys[n.n-1]
+	keys, values := make(keys, n.n+1), make(values, n.n+1)
+	copy(keys, n.keys)
+	copy(values, n.values)
+	keys.insert(key, idx, n.n)
+	values.insert(value, idx, n.n)
+	half := len(keys) / 2
+	copy(n.keys, keys[:half])
+	copy(n.values, values[:half])
+	copy(split.keys, keys[half:])
+	copy(split.values, values[half:])
+	n.n, split.n = half, len(keys)-half
+	return split, n.lastKey()
 }
 
 func (t *BPTree) insertInternal(n *node, l adt.Key, s *node) (split *node, lastKey adt.Key) {
+	idx, exact := find(n.keys, l, n.n)
+	if exact {
+		panic("duplicate internal insert")
+	}
 	if !n.isFull() {
-		n.internalInsert(l, s)
+		n.keys.insert(l, idx, n.n)
+		n.children.insert(s, idx+1, n.n+1)
+		n.n++
 		return nil, nil
 	}
 	if debug {
 		fmt.Println("split", l, adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(s, 1))
 	}
 	split = newNode(false, t.order)
-	half := n.n / 2
-	insertLeft := l.Less(n.keys[half])
-	for i := 0; i < half; i++ {
-		split.keys[i] = n.keys[i+n.n-half]
-		split.children[i] = n.children[i+n.n-half]
-	}
-	split.children[half] = n.children[n.n]
-	n.n -= half
-	split.n = half
-	lastKey = n.lastKey()
-	n.n--
-	if insertLeft {
-		n.internalInsert(l, s)
-	} else {
-		split.internalInsert(l, s)
-	}
+	keys, children := make(keys, n.n+1), make(children, n.n+2)
+	copy(keys, n.keys)
+	copy(children, n.children)
+	keys.insert(l, idx, n.n)
+	children.insert(s, idx+1, n.n+1)
+	half := len(keys) / 2
+	lastKey = keys[half]
+	copy(n.keys, keys[:half])
+	copy(n.children, children[:half+1])
+	copy(split.keys, keys[half+1:])
+	copy(split.children, children[half+1:])
+	n.n, split.n = half, len(keys)-half-1
 	if debug {
 		fmt.Println("split result", adt.PrintMultiWayTreeDepth(n, 1), adt.PrintMultiWayTreeDepth(split, 1))
 	}
